@@ -79,6 +79,7 @@ def create_device_nodes(args, suffix):
     except Exception as e:
             raise RuntimeError(error)
 
+
 def init(args, suffix="native"):
     # When already initialized: just prepare the chroot
     chroot = args.work + "/chroot_" + suffix
