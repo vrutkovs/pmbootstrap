@@ -55,11 +55,11 @@ def create_device_nodes(args, suffix):
     chroot = args.work + "/chroot_" + suffix
     pmb.helpers.run.root(args, ["mkdir", "-p", chroot + "/dev"])
 
-    # Create all device nodes as specified in the config
-    for dev in pmb.config.chroot_device_nodes:
-        path = chroot + "/dev/" + str(dev[4])
-        if not os.path.exists(path):
-            try:
+    try:
+        # Create all device nodes as specified in the config
+        for dev in pmb.config.chroot_device_nodes:
+            path = chroot + "/dev/" + str(dev[4])
+            if not os.path.exists(path):
                 pmb.helpers.run.root(args, ["mknod",
                                             "-m", str(dev[0]),  # permissions
                                             path,  # name
@@ -67,17 +67,24 @@ def create_device_nodes(args, suffix):
                                             str(dev[2]),  # major
                                             str(dev[3]),  # minor
                                             ])
-            except Exception as e:
-                raise RuntimeError(error)
 
-    # Test /dev/zero, so we know the device nodes are working
-    path = chroot + "/dev/zero"
-    logging.debug("Test device node: " + path)
-    try:
-        with open(path, "rb", 0) as handle:
-            handle.read(1)
+        # Verify major and minor numbers of created nodes
+        for dev in pmb.config.chroot_device_nodes:
+            stat_result = os.stat(chroot + "/dev/" + str(dev[4]))
+            rdev = stat_result.st_rdev
+            assert os.major(rdev) == dev[2]
+            assert os.minor(rdev) == dev[3]
+
+        # Verify /dev/zero reading and writing
+        path = chroot + "/dev/zero"
+        logging.debug("Test device node: " + path)
+        with open(path, "r+b", 0) as handle:
+            assert handle.write(bytes([0xff]))
+            assert handle.read(1) == bytes([0x00])
+
+    # On failure: Show filesystem-related error
     except Exception as e:
-            raise RuntimeError(error)
+        raise RuntimeError(error)
 
 
 def init(args, suffix="native"):
